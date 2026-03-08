@@ -12,14 +12,7 @@
         data-restrictions='[{"device":"dashboard_lcd"}]'>
     <meta name="x-icue-interactive">
 
-    <!-- Properties: Group 1 - Dice Settings -->
-    <meta name="x-icue-property" content="diceType"
-        data-label="tr('Dice Type')" data-type="combobox"
-        data-values="[{'title':'d4','value':'4'},{'title':'d6','value':'6'},{'title':'d8','value':'8'},{'title':'d10','value':'10'},{'title':'d12','value':'12'},{'title':'d20','value':'20'},{'title':'d100','value':'100'}]"
-        data-default="'20'">
-    <meta name="x-icue-property" content="diceCount"
-        data-label="tr('Number of Dice')" data-type="slider"
-        data-default="1" data-min="1" data-max="10" data-step="1">
+    <!-- Properties: Group 1 - Widget Settings -->
     <meta name="x-icue-property" content="showHistory"
         data-label="tr('Show History')" data-type="switch" data-default="true">
 
@@ -39,7 +32,7 @@
     [
         {
             "title": "tr('QK Dice Roller')",
-            "properties": ["diceType", "diceCount", "showHistory"]
+            "properties": ["showHistory"]
         },
         {
             "title": "tr('Appearance')",
@@ -784,8 +777,6 @@
         // Settings
         // ══════════════════════════════════════════════════════════════
         function readSettings() {
-            if (typeof diceType !== 'undefined') cfg.diceMax = Number(diceType) || 20;
-            if (typeof diceCount !== 'undefined') cfg.diceCount = Math.max(1, Math.min(10, Number(diceCount) || 1));
             if (typeof showHistory !== 'undefined') cfg.showHistory = !!showHistory;
             if (typeof textColor !== 'undefined') cfg.textColor = textColor;
             if (typeof accentColor !== 'undefined') cfg.accentColor = accentColor;

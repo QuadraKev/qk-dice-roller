@@ -46,8 +46,6 @@ A spinning wireframe of the selected die rotates behind the result. Each die typ
 
 | Setting | Description |
 |---------|-------------|
-| **Dice Type** | Default die type (d4-d100). Also adjustable in-widget. |
-| **Number of Dice** | Default dice count (1-10). Also adjustable in-widget. |
 | **Show History** | Toggle the roll history panel |
 | **Text Color** | Color for result numbers and text |
 | **Accent Color** | Color for dice wireframe, controls, and history headers |
