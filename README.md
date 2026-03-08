@@ -14,7 +14,7 @@ Dice type and count are adjustable directly on the widget using +/- buttons in s
 
 ### 3D Wireframe Backdrop
 
-A spinning wireframe of the selected die rotates behind the result. Each die type renders as its actual polyhedron -- tetrahedron (d4), cube (d6), octahedron (d8), pentagonal trapezohedron (d10), dodecahedron (d12), and icosahedron (d20). The d100 uses a static overlapping-circles shape.
+A spinning wireframe of the selected die rotates behind the result. Each die type renders as its actual polyhedron: tetrahedron (d4), cube (d6), octahedron (d8), pentagonal trapezohedron (d10), dodecahedron (d12), and icosahedron (d20). The d100 uses a static overlapping-circles shape.
 
 - Orthographic projection with backface culling (Newell's method)
 - 3D tumbling with random axis drift for realistic motion
@@ -60,11 +60,11 @@ A spinning wireframe of the selected die rotates behind the result. Each die typ
 
 The widget adapts to all Xeneon Edge slot sizes:
 
-- **S** (840x344) -- history hidden; controls and result scaled up to match the physical size of other slots
-- **M** (840x696) -- dice area on top, history scrolls horizontally below
-- **L** (1688x696) -- dice area on the left, history panel on the right
-- **XL** (2536x696) -- same as L with more horizontal space
-- **Portrait** (vertical orientation) -- dice area on top, history list below
+- **S** (840x344): history hidden; controls and result scaled up to match the physical size of other slots
+- **M** (840x696): dice area on top, history scrolls horizontally below
+- **L** (1688x696): dice area on the left, history panel on the right
+- **XL** (2536x696): same as L with more horizontal space
+- **Portrait** (vertical orientation): dice area on top, history list below
 
 When rolling multiple dice, individual results appear below the total (e.g., [4, 8, 5]).
 
