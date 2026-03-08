@@ -1,0 +1,1090 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>tr('QK Dice Roller')</title>
+    <link rel="icon" type="image/svg+xml" href="images/qk-dice-roller.svg">
+
+    <!-- iCUE Widget Metadata -->
+    <meta name="x-icue-widget-preview" content="resources/DiceRollerPreview.png">
+    <meta name="x-icue-restrictions"
+        data-restrictions='[{"device":"dashboard_lcd"}]'>
+    <meta name="x-icue-interactive">
+
+    <!-- Properties: Group 1 - Dice Settings -->
+    <meta name="x-icue-property" content="diceType"
+        data-label="tr('Dice Type')" data-type="combobox"
+        data-values="[{'title':'d4','value':'4'},{'title':'d6','value':'6'},{'title':'d8','value':'8'},{'title':'d10','value':'10'},{'title':'d12','value':'12'},{'title':'d20','value':'20'},{'title':'d100','value':'100'}]"
+        data-default="'20'">
+    <meta name="x-icue-property" content="diceCount"
+        data-label="tr('Number of Dice')" data-type="slider"
+        data-default="1" data-min="1" data-max="10" data-step="1">
+    <meta name="x-icue-property" content="showHistory"
+        data-label="tr('Show History')" data-type="switch" data-default="true">
+
+    <!-- Properties: Group 2 - Appearance (DP-mapped) -->
+    <meta name="x-icue-property" content="textColor"
+        data-label="tr('Text Color')" data-type="color" data-default="'#E0E0E0'">
+    <meta name="x-icue-property" content="accentColor"
+        data-label="tr('Accent Color')" data-type="color" data-default="'#FFD700'">
+    <meta name="x-icue-property" content="backgroundColor"
+        data-label="tr('Background Color')" data-type="color" data-default="'#0A0A0A'">
+    <meta name="x-icue-property" content="transparency"
+        data-label="tr('Transparency')" data-type="slider"
+        data-default="0" data-min="0" data-max="100" data-step="1" unit-label="%">
+
+    <!-- Property Groups -->
+    <script type="application/json" id="x-icue-groups">
+    [
+        {
+            "title": "tr('QK Dice Roller')",
+            "properties": ["diceType", "diceCount", "showHistory"]
+        },
+        {
+            "title": "tr('Appearance')",
+            "properties": ["textColor", "accentColor", "backgroundColor", "transparency"]
+        }
+    ]
+    </script>
+
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --text-color: #E0E0E0;
+            --accent-color: #FFD700;
+            --bg-color: #0A0A0A;
+            --widget-opacity: 1.0;
+            --die-base: 92vh;
+        }
+
+        @font-face {
+            font-family: 'OpenSansSemiBold';
+            src: url('qrc:/fonts/OpenSans-SemiBold.ttf');
+        }
+        @font-face {
+            font-family: 'BebasNeuePro-SemiExpBold';
+            src: url('qrc:/fonts/BebasNeuePro-SemiExpBold.otf');
+        }
+
+        body {
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            font-family: 'OpenSansSemiBold', 'Segoe UI', sans-serif;
+            background: transparent;
+            color: var(--text-color);
+            user-select: none;
+            cursor: pointer;
+        }
+
+        .container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: row;
+            background-color: color-mix(in srgb, var(--bg-color), transparent calc((1 - var(--widget-opacity)) * 100%));
+        }
+
+        /* ---- Dice Area ---- */
+        .dice-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-width: 0;
+            padding: 2vh 2vw;
+            position: relative;
+        }
+
+        /* ---- Main row: controls flanking result ---- */
+        .dice-main-row {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            flex: 1;
+            gap: 3vh;
+        }
+
+        .dice-center {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: 0.8vh;
+            z-index: 10;
+            flex: 1;
+        }
+
+        #count-controls {
+            justify-content: flex-end;
+        }
+
+        #type-controls {
+            justify-content: flex-start;
+        }
+
+        .ctrl-btn {
+            width: 10.4vh;
+            height: 10.4vh;
+            border: 2px solid var(--accent-color);
+            border-radius: 1.5vh;
+            background: rgba(255, 255, 255, 0.06);
+            color: var(--accent-color);
+            font-family: 'BebasNeuePro-SemiExpBold', 'Segoe UI', sans-serif;
+            font-size: 6vh;
+            line-height: 1;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.15s, transform 0.1s;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .ctrl-btn:active {
+            background: rgba(255, 255, 255, 0.15);
+            transform: scale(0.93);
+        }
+
+        .ctrl-value {
+            font-family: 'BebasNeuePro-SemiExpBold', 'Segoe UI', sans-serif;
+            font-size: 7vh;
+            color: var(--accent-color);
+            min-width: 5vh;
+            text-align: center;
+            line-height: 1;
+        }
+
+        /* ---- Dice shape backdrop ---- */
+        .dice-result-wrap {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .dice-shapes {
+            position: absolute;
+            inset: 0;
+            display: grid;
+            place-items: center;
+            pointer-events: none;
+        }
+
+        .dice-shape {
+            opacity: 0.22;
+            color: var(--accent-color);
+            pointer-events: none;
+            flex-shrink: 0;
+        }
+
+        .dice-result {
+            font-family: 'BebasNeuePro-SemiExpBold', 'Segoe UI', sans-serif;
+            font-size: 22vh;
+            position: relative;
+            z-index: 1;
+            line-height: 1;
+            color: var(--text-color);
+            transition: transform 0.15s ease-out, opacity 0.15s ease-out;
+        }
+
+        .dice-result.digits-3 { font-size: 16vh; }
+        .dice-result.digits-4 { font-size: 12vh; }
+
+        .dice-result.pop {
+            transform: scale(1.08);
+        }
+
+        .dice-result.rolling {
+            opacity: 0.7;
+        }
+
+        .dice-individual {
+            font-size: 4vh;
+            color: var(--text-color);
+            opacity: 0.6;
+            text-align: center;
+            white-space: nowrap;
+            position: absolute;
+            bottom: 3vh;
+            left: 0;
+            right: 0;
+        }
+
+        .dice-hint {
+            font-size: 3.5vh;
+            color: var(--text-color);
+            opacity: 0.3;
+            margin-top: 2vh;
+            letter-spacing: 0.2vw;
+        }
+
+        /* ---- History Area ---- */
+        .history-area {
+            flex: 0 0 28%;
+            display: flex;
+            flex-direction: column;
+            border-left: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 2vh 1.5vw;
+            overflow: hidden;
+        }
+
+        .history-area.hidden {
+            display: none;
+        }
+
+        .history-title {
+            font-size: 3.5vh;
+            color: var(--accent-color);
+            opacity: 0.8;
+            margin-bottom: 1.5vh;
+            letter-spacing: 0.15vw;
+            text-transform: uppercase;
+            flex-shrink: 0;
+        }
+
+        .history-list {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        .history-list::-webkit-scrollbar {
+            width: 3px;
+        }
+        .history-list::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .history-list::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 2px;
+        }
+
+        .history-entry {
+            padding: 0.8vh 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+            opacity: 0.7;
+        }
+
+        .history-entry:first-child {
+            opacity: 1;
+        }
+
+        .history-config {
+            font-size: 3vh;
+            color: var(--accent-color);
+            opacity: 0.7;
+        }
+
+        .history-result {
+            font-size: 4vh;
+            color: var(--text-color);
+        }
+
+        .history-detail {
+            font-size: 2.8vh;
+            color: var(--text-color);
+            opacity: 0.4;
+        }
+
+        .history-empty {
+            font-size: 3vh;
+            color: var(--text-color);
+            opacity: 0.2;
+            font-style: italic;
+            margin-top: 2vh;
+        }
+
+        /* ---- Responsive: Wide + short (S slot only) ---- */
+        /* S slot is ~half the height of M, so double vh values to match physical size */
+        @media (min-aspect-ratio: 200/100) and (max-height: 500px) {
+            .history-area {
+                display: none;
+            }
+            .ctrl-btn {
+                width: 20.8vh;
+                height: 20.8vh;
+                font-size: 12vh;
+                border-radius: 3vh;
+            }
+            .ctrl-value {
+                font-size: 14vh;
+                min-width: 10vh;
+            }
+            .control-group {
+                gap: 1.6vh;
+            }
+            .dice-result {
+                font-size: 44vh;
+            }
+            .dice-result.digits-3 { font-size: 32vh; }
+            .dice-result.digits-4 { font-size: 24vh; }
+            .dice-hint {
+                font-size: 7vh;
+            }
+            .dice-individual {
+                font-size: 8vh;
+            }
+            :root { --die-base: 85vh; }
+        }
+
+        /* ---- Responsive: Square-ish (M horizontal, S vertical) ---- */
+        @media (max-aspect-ratio: 180/100) and (min-aspect-ratio: 90/100) {
+            :root { --die-base: 58vh; }
+            .container {
+                flex-direction: column;
+            }
+            .dice-area {
+                flex: 1;
+            }
+            .history-area {
+                flex: 0 0 30%;
+                border-left: none;
+                border-top: 1px solid rgba(255, 255, 255, 0.08);
+            }
+            .history-list {
+                display: flex;
+                flex-direction: row;
+                gap: 1.5vw;
+                overflow-x: auto;
+                overflow-y: hidden;
+            }
+            .history-entry {
+                flex-shrink: 0;
+                border-bottom: none;
+                border-right: 1px solid rgba(255, 255, 255, 0.04);
+                padding: 0 1.5vw 0 0;
+            }
+        }
+
+        /* ---- Responsive: Portrait (M/L/XL vertical) ---- */
+        @media (max-aspect-ratio: 90/100) {
+            .container {
+                flex-direction: column;
+            }
+            .dice-area {
+                flex: 0 0 45%;
+            }
+            :root { --die-base: 80vw; }
+            .history-area {
+                flex: 1;
+                border-left: none;
+                border-top: 1px solid rgba(255, 255, 255, 0.08);
+            }
+            .history-title {
+                font-size: 3.5vw;
+            }
+            .history-config {
+                font-size: 3vw;
+            }
+            .history-result {
+                font-size: 4vw;
+            }
+            .history-detail {
+                font-size: 2.5vw;
+            }
+        }
+
+        /* ---- Responsive: Very tall portrait (L/XL vertical) ---- */
+        @media (max-aspect-ratio: 50/100) {
+            .dice-area {
+                flex: 0 0 30%;
+            }
+            .history-area {
+                flex: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="container">
+        <div class="dice-area" id="dice-area">
+            <div class="dice-shapes" id="dice-shapes"></div>
+            <div class="dice-main-row">
+                <div class="control-group" id="count-controls">
+                    <button class="ctrl-btn" id="count-minus" aria-label="Decrease count">-</button>
+                    <span class="ctrl-value" id="count-value">1</span>
+                    <button class="ctrl-btn" id="count-plus" aria-label="Increase count">+</button>
+                </div>
+                <div class="dice-center">
+                    <div class="dice-result-wrap">
+                        <div class="dice-result" id="dice-result">--</div>
+                    </div>
+                    <div class="dice-hint" id="dice-hint"></div>
+                </div>
+                <div class="control-group" id="type-controls">
+                    <button class="ctrl-btn" id="type-minus" aria-label="Previous dice type">-</button>
+                    <span class="ctrl-value" id="type-value">d20</span>
+                    <button class="ctrl-btn" id="type-plus" aria-label="Next dice type">+</button>
+                </div>
+            </div>
+            <div class="dice-individual" id="dice-individual"></div>
+        </div>
+        <div class="history-area" id="history-area">
+            <div class="history-title" id="history-title"></div>
+            <div class="history-list" id="history-list">
+                <div class="history-empty" id="history-empty"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ══════════════════════════════════════════════════════════════
+        // Configuration
+        // ══════════════════════════════════════════════════════════════
+        var cfg = {
+            diceMax: 20,
+            diceCount: 1,
+            showHistory: true,
+            textColor: '#E0E0E0',
+            accentColor: '#FFD700',
+            bgColor: '#0A0A0A',
+            transparency: 0
+        };
+
+        var DICE_TYPES = [4, 6, 8, 10, 12, 20, 100];
+
+        // ══════════════════════════════════════════════════════════════
+        // 3D Polyhedra Engine - spinning wireframe backdrop
+        // ══════════════════════════════════════════════════════════════
+        var SVG_NS = 'http://www.w3.org/2000/svg';
+        var PHI = (1 + Math.sqrt(5)) / 2;
+        var IPHI = 1 / PHI;
+
+        function rX(v, c, s) { return [v[0], v[1]*c - v[2]*s, v[1]*s + v[2]*c]; }
+        function rY(v, c, s) { return [v[0]*c + v[2]*s, v[1], -v[0]*s + v[2]*c]; }
+        function rZ(v, c, s) { return [v[0]*c - v[1]*s, v[0]*s + v[1]*c, v[2]]; }
+
+        // Polyhedra: { v: [[x,y,z]...], f: [[idx...]...] } with CCW winding from outside
+        var POLYHEDRA = {};
+
+        // d4 - Tetrahedron (4 vertices, 4 faces, 6 edges)
+        POLYHEDRA[4] = { v: [[1,1,1],[1,-1,-1],[-1,1,-1],[-1,-1,1]],
+            f: [[0,1,2],[0,3,1],[0,2,3],[1,3,2]] };
+
+        // d6 - Cube (8 vertices, 6 faces, 12 edges)
+        POLYHEDRA[6] = { v: [[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]],
+            f: [[0,3,2,1],[4,5,6,7],[0,1,5,4],[2,3,7,6],[1,2,6,5],[0,4,7,3]] };
+
+        // d8 - Octahedron (6 vertices, 8 faces, 12 edges)
+        POLYHEDRA[8] = { v: [[0,1,0],[1,0,0],[0,0,1],[-1,0,0],[0,0,-1],[0,-1,0]],
+            f: [[0,2,1],[0,3,2],[0,4,3],[0,1,4],[5,1,2],[5,2,3],[5,3,4],[5,4,1]] };
+
+        // d10 - Pentagonal Trapezohedron (12 vertices, 10 kite faces, 20 edges)
+        // Planar kite faces with angles: 51.83deg (pole), 90deg (sides), 128.17deg (equator)
+        // Derived from constraint: d/H = (1-cos36deg)/(1+cos36deg), R^2 = 2d(H-d)/(1-cos36deg)
+        (function() {
+            var H = 1.3, d = 0.13724, R = 1.29274;
+            var v = [[0,H,0]]; // 0: top pole
+            var i, a;
+            // Ring A (upper): vertices 1-5 at y=+d
+            for (i = 0; i < 5; i++) { a = i*2*Math.PI/5; v.push([R*Math.cos(a), d, R*Math.sin(a)]); }
+            // Ring B (lower): vertices 6-10 at y=-d, offset 36 deg
+            for (i = 0; i < 5; i++) { a = i*2*Math.PI/5 + Math.PI/5; v.push([R*Math.cos(a), -d, R*Math.sin(a)]); }
+            v.push([0,-H,0]); // 11: bottom pole
+
+            var f = [];
+            for (i = 0; i < 5; i++) {
+                var a1 = 1+i, a2 = 1+(i+1)%5;
+                var b1 = 6+i, b2 = 6+(i+1)%5;
+                f.push([0, a2, b1, a1]);    // upper kite (outward normal)
+                f.push([11, b1, a2, b2]);   // lower kite (outward normal)
+            }
+            POLYHEDRA[10] = { v: v, f: f };
+        })();
+
+        // d12 - Dodecahedron (20 vertices, 12 faces, 30 edges)
+        POLYHEDRA[12] = { v: [
+            [1,1,1],[1,1,-1],[1,-1,1],[1,-1,-1],[-1,1,1],[-1,1,-1],[-1,-1,1],[-1,-1,-1],
+            [0,PHI,IPHI],[0,PHI,-IPHI],[0,-PHI,IPHI],[0,-PHI,-IPHI],
+            [IPHI,0,PHI],[IPHI,0,-PHI],[-IPHI,0,PHI],[-IPHI,0,-PHI],
+            [PHI,IPHI,0],[PHI,-IPHI,0],[-PHI,IPHI,0],[-PHI,-IPHI,0]],
+            f: [[0,12,2,17,16],[0,16,1,9,8],[0,8,4,14,12],[1,16,17,3,13],[1,13,15,5,9],
+                [2,12,14,6,10],[2,10,11,3,17],[4,8,9,5,18],[4,18,19,6,14],[3,11,7,15,13],
+                [5,15,7,19,18],[6,19,7,11,10]] };
+
+        // d20 - Icosahedron (12 vertices, 20 faces, 30 edges)
+        POLYHEDRA[20] = { v: [
+            [0,1,PHI],[0,1,-PHI],[0,-1,PHI],[0,-1,-PHI],
+            [1,PHI,0],[1,-PHI,0],[-1,PHI,0],[-1,-PHI,0],
+            [PHI,0,1],[PHI,0,-1],[-PHI,0,1],[-PHI,0,-1]],
+            f: [[0,2,8],[0,8,4],[0,4,6],[0,6,10],[0,10,2],
+                [2,5,8],[8,5,9],[8,9,4],[4,9,1],[4,1,6],
+                [6,1,11],[6,11,10],[10,11,7],[10,7,2],[2,7,5],
+                [3,5,7],[3,7,11],[3,11,1],[3,1,9],[3,9,5]] };
+
+        // d100 uses static SVG (no polyhedron)
+        var D100_SVG = '<circle cx="38" cy="50" r="30" fill="none" stroke="currentColor" stroke-width="3"/><circle cx="62" cy="50" r="30" fill="none" stroke="currentColor" stroke-width="3"/>';
+
+        // Pre-extract unique edges for each polyhedron
+        var POLY_EDGES = {};
+        (function() {
+            for (var key in POLYHEDRA) {
+                var poly = POLYHEDRA[key];
+                var faces = poly.f;
+                // Build edge-to-face mapping from (possibly triangulated) faces
+                var edgeFaceMap = {};
+                for (var fi = 0; fi < faces.length; fi++) {
+                    var face = faces[fi];
+                    for (var ei = 0; ei < face.length; ei++) {
+                        var a = face[ei], b = face[(ei+1) % face.length];
+                        var ek = Math.min(a,b) + ',' + Math.max(a,b);
+                        if (!edgeFaceMap[ek]) edgeFaceMap[ek] = [];
+                        edgeFaceMap[ek].push(fi);
+                    }
+                }
+                if (poly.e) {
+                    // Use explicit edge list (e.g. d10: real edges without diagonals)
+                    var seen = {};
+                    POLY_EDGES[key] = [];
+                    for (var ei = 0; ei < poly.e.length; ei++) {
+                        var ea = poly.e[ei][0], eb = poly.e[ei][1];
+                        var ek = Math.min(ea,eb) + ',' + Math.max(ea,eb);
+                        if (seen[ek]) continue;
+                        seen[ek] = true;
+                        POLY_EDGES[key].push({ a: Math.min(ea,eb), b: Math.max(ea,eb), faces: edgeFaceMap[ek] || [] });
+                    }
+                } else {
+                    // Auto-extract edges from faces
+                    POLY_EDGES[key] = [];
+                    for (var ek in edgeFaceMap) {
+                        var parts = ek.split(',').map(Number);
+                        POLY_EDGES[key].push({ a: parts[0], b: parts[1], faces: edgeFaceMap[ek] });
+                    }
+                }
+            }
+        })();
+
+        // Pre-compute circumradius for each polyhedron (fixed scale reference)
+        var POLY_RADIUS = {};
+        (function() {
+            for (var key in POLYHEDRA) {
+                var verts = POLYHEDRA[key].v;
+                var maxR = 0;
+                for (var i = 0; i < verts.length; i++) {
+                    var v = verts[i];
+                    var r = Math.sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
+                    if (r > maxR) maxR = r;
+                }
+                POLY_RADIUS[key] = maxR;
+            }
+        })();
+
+        // Animation state
+        var IDLE_SPEED = 0.3;   // radians per second (gentle idle spin)
+        var ROLL_SPEED = 60;    // radians per second (fast roll spin)
+        var ROLL_DECAY = 0.03;  // exponential decay factor (lower = faster slowdown)
+        var TUMBLE_IDLE = 0.4;  // axis drift strength during idle
+        var TUMBLE_ROLL = 4.0;  // axis drift strength during roll
+
+        var spinRAF = null;
+        var lastSpinTime = 0;
+
+        var diceInstances = [];
+
+        // Random unit direction on a sphere
+        function randDir(speed) {
+            var theta = Math.random() * Math.PI * 2;
+            var phi = Math.acos(2 * Math.random() - 1);
+            return [
+                speed * Math.sin(phi) * Math.cos(theta),
+                speed * Math.sin(phi) * Math.sin(theta),
+                speed * Math.cos(phi)
+            ];
+        }
+
+        function createDieInstance() {
+            var svgEl = document.createElementNS(SVG_NS, 'svg');
+            svgEl.setAttribute('viewBox', '0 0 100 100');
+            svgEl.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+            svgEl.setAttribute('fill', 'none');
+            svgEl.setAttribute('stroke', 'currentColor');
+            svgEl.setAttribute('stroke-width', '1.5');
+            svgEl.setAttribute('stroke-linecap', 'round');
+            svgEl.setAttribute('stroke-linejoin', 'round');
+            svgEl.classList.add('dice-shape');
+            var dir = randDir(IDLE_SPEED);
+            return {
+                // 3 rotation angles (Euler)
+                ax: Math.random() * Math.PI * 2,
+                ay: Math.random() * Math.PI * 2,
+                az: Math.random() * Math.PI * 2,
+                // 3D angular velocity vector
+                wx: dir[0], wy: dir[1], wz: dir[2],
+                speed: IDLE_SPEED,
+                svgEl: svgEl,
+                linePool: []
+            };
+        }
+
+        function getDieLine(die, idx) {
+            while (die.linePool.length <= idx) {
+                die.linePool.push(document.createElementNS(SVG_NS, 'line'));
+            }
+            return die.linePool[idx];
+        }
+
+        function renderDie(die) {
+            var poly = POLYHEDRA[cfg.diceMax];
+            if (!poly) return;
+
+            var verts = poly.v;
+            var faces = poly.f;
+            var edges = POLY_EDGES[cfg.diceMax];
+            var cosX = Math.cos(die.ax), sinX = Math.sin(die.ax);
+            var cosY = Math.cos(die.ay), sinY = Math.sin(die.ay);
+            var cosZ = Math.cos(die.az), sinZ = Math.sin(die.az);
+
+            // Rotate all vertices by 3 Euler angles
+            var rv = [];
+            for (var i = 0; i < verts.length; i++) {
+                rv.push(rZ(rX(rY(verts[i], cosY, sinY), cosX, sinX), cosZ, sinZ));
+            }
+
+            // Determine which faces are front-facing using Newell's method
+            var faceFront = [];
+            for (var fi = 0; fi < faces.length; fi++) {
+                var f = faces[fi];
+                var nz = 0;
+                for (var vi = 0; vi < f.length; vi++) {
+                    var curr = rv[f[vi]], next = rv[f[(vi+1) % f.length]];
+                    nz += (curr[0] - next[0]) * (curr[1] + next[1]);
+                }
+                faceFront.push(nz > 0);
+            }
+
+            // Fixed scale based on circumradius (no dynamic rescaling)
+            var sc = 45 / POLY_RADIUS[cfg.diceMax];
+
+            // Collect visible edges
+            var visCount = 0;
+            for (i = 0; i < edges.length; i++) {
+                var edge = edges[i];
+                var visible = false;
+                for (var j = 0; j < edge.faces.length; j++) {
+                    if (faceFront[edge.faces[j]]) { visible = true; break; }
+                }
+                if (!visible) continue;
+
+                var va = rv[edge.a], vb = rv[edge.b];
+                var l = getDieLine(die, visCount);
+                l.setAttribute('x1', (50 + va[0] * sc).toFixed(1));
+                l.setAttribute('y1', (50 - va[1] * sc).toFixed(1));
+                l.setAttribute('x2', (50 + vb[0] * sc).toFixed(1));
+                l.setAttribute('y2', (50 - vb[1] * sc).toFixed(1));
+                visCount++;
+            }
+
+            // Update SVG: add/remove lines as needed
+            var svgEl = die.svgEl;
+            while (svgEl.childNodes.length > visCount) svgEl.removeChild(svgEl.lastChild);
+            for (i = 0; i < visCount; i++) {
+                if (!die.linePool[i].parentNode) svgEl.appendChild(die.linePool[i]);
+            }
+        }
+
+        function spinLoop(now) {
+            if (!lastSpinTime) lastSpinTime = now;
+            var dt = (now - lastSpinTime) / 1000;
+            lastSpinTime = now;
+
+            for (var i = 0; i < diceInstances.length; i++) {
+                var die = diceInstances[i];
+
+                // Drift the rotation axis: add random perturbation, re-normalize
+                var drift = die.speed > IDLE_SPEED * 2 ? TUMBLE_ROLL : TUMBLE_IDLE;
+                die.wx += (Math.random() - 0.5) * drift * dt;
+                die.wy += (Math.random() - 0.5) * drift * dt;
+                die.wz += (Math.random() - 0.5) * drift * dt;
+                var mag = Math.sqrt(die.wx * die.wx + die.wy * die.wy + die.wz * die.wz);
+                if (mag > 0) {
+                    die.wx = die.wx / mag * die.speed;
+                    die.wy = die.wy / mag * die.speed;
+                    die.wz = die.wz / mag * die.speed;
+                }
+
+                // Advance rotation angles
+                die.ax += die.wx * dt;
+                die.ay += die.wy * dt;
+                die.az += die.wz * dt;
+
+                // Decelerate from roll speed back to idle
+                if (die.speed > IDLE_SPEED * 1.05) {
+                    die.speed *= Math.pow(ROLL_DECAY, dt);
+                    if (die.speed <= IDLE_SPEED * 1.05) {
+                        die.speed = IDLE_SPEED;
+                    }
+                }
+
+                renderDie(die);
+            }
+
+            spinRAF = requestAnimationFrame(spinLoop);
+        }
+
+        function startSpin() {
+            if (spinRAF) return;
+            lastSpinTime = 0;
+            spinRAF = requestAnimationFrame(spinLoop);
+        }
+
+        function stopSpin() {
+            if (spinRAF) { cancelAnimationFrame(spinRAF); spinRAF = null; }
+        }
+
+        function triggerRollSpin() {
+            for (var i = 0; i < diceInstances.length; i++) {
+                var die = diceInstances[i];
+                die.speed = ROLL_SPEED + (Math.random() - 0.5) * 2;
+                // Randomize rotation axis for chaotic tumble
+                var dir = randDir(die.speed);
+                die.wx = dir[0]; die.wy = dir[1]; die.wz = dir[2];
+            }
+        }
+
+        var rolling = false;
+        var rollHistory = [];
+        var MAX_HISTORY = 50;
+        var hasRolled = false;
+
+        // Translated strings (populated in onInit)
+        var str = {
+            tapToRoll: 'Tap to Roll',
+            history: 'History',
+            noRolls: 'No rolls yet'
+        };
+
+        // ══════════════════════════════════════════════════════════════
+        // DOM references
+        // ══════════════════════════════════════════════════════════════
+        var elResult = document.getElementById('dice-result');
+        var elDiceShapes = document.getElementById('dice-shapes');
+        var elCountValue = document.getElementById('count-value');
+        var elTypeValue = document.getElementById('type-value');
+        var elIndividual = document.getElementById('dice-individual');
+        var elHint = document.getElementById('dice-hint');
+        var elHistoryArea = document.getElementById('history-area');
+        var elHistoryTitle = document.getElementById('history-title');
+        var elHistoryList = document.getElementById('history-list');
+        var elHistoryEmpty = document.getElementById('history-empty');
+
+        // ══════════════════════════════════════════════════════════════
+        // Settings
+        // ══════════════════════════════════════════════════════════════
+        function readSettings() {
+            if (typeof diceType !== 'undefined') cfg.diceMax = Number(diceType) || 20;
+            if (typeof diceCount !== 'undefined') cfg.diceCount = Math.max(1, Math.min(10, Number(diceCount) || 1));
+            if (typeof showHistory !== 'undefined') cfg.showHistory = !!showHistory;
+            if (typeof textColor !== 'undefined') cfg.textColor = textColor;
+            if (typeof accentColor !== 'undefined') cfg.accentColor = accentColor;
+            if (typeof backgroundColor !== 'undefined') cfg.bgColor = backgroundColor;
+            if (typeof transparency !== 'undefined') cfg.transparency = Number(transparency) || 0;
+        }
+
+        // Scale factor per die count (fraction of --die-base)
+        var DIE_SCALE = [0, 1, 0.72, 0.56, 0.50, 0.44, 0.39, 0.34, 0.31, 0.28, 0.26];
+
+        // Grid columns per die count: [0, 1, 2, 3, 2, 3, 3, 4, 4, 3, 5]
+        var DIE_COLS = [0, 1, 2, 3, 2, 3, 3, 4, 4, 3, 5];
+
+        function updateDiceShape() {
+            stopSpin();
+            diceInstances = [];
+            elDiceShapes.innerHTML = '';
+
+            var count = cfg.diceCount;
+            var cols = DIE_COLS[Math.min(count, DIE_COLS.length - 1)];
+            elDiceShapes.style.gridTemplateColumns = 'repeat(' + cols + ', auto)';
+            var scale = DIE_SCALE[Math.min(count, DIE_SCALE.length - 1)];
+            var size = 'calc(var(--die-base) * ' + scale + ')';
+
+            if (cfg.diceMax === 100) {
+                // d100: static overlapping circles for each die
+                for (var i = 0; i < count; i++) {
+                    var svgEl = document.createElementNS(SVG_NS, 'svg');
+                    svgEl.setAttribute('viewBox', '0 0 100 100');
+                    svgEl.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+                    svgEl.setAttribute('fill', 'none');
+                    svgEl.setAttribute('stroke', 'currentColor');
+                    svgEl.setAttribute('stroke-width', '3');
+                    svgEl.classList.add('dice-shape');
+                    svgEl.style.width = size;
+                    svgEl.style.height = size;
+                    svgEl.innerHTML = D100_SVG;
+                    elDiceShapes.appendChild(svgEl);
+                }
+            } else if (POLYHEDRA[cfg.diceMax]) {
+                // Spinning 3D wireframes
+                for (var i = 0; i < count; i++) {
+                    var die = createDieInstance();
+                    die.svgEl.style.width = size;
+                    die.svgEl.style.height = size;
+                    diceInstances.push(die);
+                    elDiceShapes.appendChild(die.svgEl);
+                }
+                startSpin();
+            }
+        }
+
+        function applySettings() {
+            var root = document.documentElement;
+            root.style.setProperty('--text-color', cfg.textColor);
+            root.style.setProperty('--accent-color', cfg.accentColor);
+            root.style.setProperty('--bg-color', cfg.bgColor);
+            root.style.setProperty('--widget-opacity', 1 - (cfg.transparency / 100));
+
+            elCountValue.textContent = cfg.diceCount;
+            elTypeValue.textContent = 'd' + cfg.diceMax;
+            updateDiceShape();
+
+            if (cfg.showHistory) {
+                elHistoryArea.classList.remove('hidden');
+            } else {
+                elHistoryArea.classList.add('hidden');
+            }
+
+            if (!hasRolled) {
+                elResult.textContent = '--';
+                elIndividual.textContent = '';
+            }
+        }
+
+        // ══════════════════════════════════════════════════════════════
+        // Dice rolling
+        // ══════════════════════════════════════════════════════════════
+        function randInt(max) {
+            return Math.floor(Math.random() * max) + 1;
+        }
+
+        function rollDice() {
+            if (rolling) return;
+            rolling = true;
+            hasRolled = true;
+
+            var max = cfg.diceMax;
+            var count = cfg.diceCount;
+            var steps = 14;
+
+            elResult.classList.add('rolling');
+            elResult.classList.remove('pop');
+            triggerRollSpin();
+
+            function animate(step) {
+                if (step >= steps) {
+                    // Final roll
+                    var results = [];
+                    for (var i = 0; i < count; i++) {
+                        results.push(randInt(max));
+                    }
+                    showResult(results, true);
+                    addToHistory(results);
+
+                    elResult.classList.remove('rolling');
+                    elResult.classList.add('pop');
+                    setTimeout(function() { elResult.classList.remove('pop'); }, 200);
+
+                    rolling = false;
+                    return;
+                }
+
+                // Show random preview
+                var preview = [];
+                for (var i = 0; i < count; i++) {
+                    preview.push(randInt(max));
+                }
+                showResult(preview, false);
+
+                // Ease-out timing: starts fast (30ms), ends slow (~150ms)
+                var delay = 30 + step * step * 0.7;
+                setTimeout(function() { animate(step + 1); }, delay);
+            }
+
+            animate(0);
+        }
+
+        function showResult(results, isFinal) {
+            var total = 0;
+            for (var i = 0; i < results.length; i++) total += results[i];
+
+            var display = (results.length === 1) ? results[0] : total;
+            elResult.textContent = display;
+
+            // Scale font down for large numbers to prevent overflow
+            var digits = String(display).length;
+            elResult.classList.remove('digits-3', 'digits-4');
+            if (digits === 3) {
+                elResult.classList.add('digits-3');
+            } else if (digits >= 4) {
+                elResult.classList.add('digits-4');
+            }
+
+            if (results.length > 1 && isFinal) {
+                elIndividual.textContent = '[' + results.join(', ') + ']';
+            } else if (results.length === 1) {
+                elIndividual.textContent = '';
+            }
+        }
+
+        // ══════════════════════════════════════════════════════════════
+        // History
+        // ══════════════════════════════════════════════════════════════
+        function addToHistory(results) {
+            var total = 0;
+            for (var i = 0; i < results.length; i++) total += results[i];
+
+            rollHistory.unshift({
+                config: cfg.diceCount + 'd' + cfg.diceMax,
+                results: results.slice(),
+                total: total
+            });
+
+            if (rollHistory.length > MAX_HISTORY) {
+                rollHistory.length = MAX_HISTORY;
+            }
+
+            renderHistory();
+        }
+
+        function renderHistory() {
+            // Clear existing entries but keep the empty placeholder
+            while (elHistoryList.firstChild) {
+                elHistoryList.removeChild(elHistoryList.firstChild);
+            }
+
+            if (rollHistory.length === 0) {
+                var empty = document.createElement('div');
+                empty.className = 'history-empty';
+                empty.textContent = str.noRolls;
+                elHistoryList.appendChild(empty);
+                return;
+            }
+
+            for (var i = 0; i < rollHistory.length; i++) {
+                var entry = rollHistory[i];
+                var div = document.createElement('div');
+                div.className = 'history-entry';
+
+                var configSpan = document.createElement('div');
+                configSpan.className = 'history-config';
+                configSpan.textContent = entry.config;
+                div.appendChild(configSpan);
+
+                var resultSpan = document.createElement('div');
+                resultSpan.className = 'history-result';
+                resultSpan.textContent = entry.total;
+                div.appendChild(resultSpan);
+
+                if (entry.results.length > 1) {
+                    var detailSpan = document.createElement('div');
+                    detailSpan.className = 'history-detail';
+                    detailSpan.textContent = '[' + entry.results.join(', ') + ']';
+                    div.appendChild(detailSpan);
+                }
+
+                elHistoryList.appendChild(div);
+            }
+        }
+
+        // ══════════════════════════════════════════════════════════════
+        // In-widget controls
+        // ══════════════════════════════════════════════════════════════
+        function changeDiceType(delta) {
+            var idx = DICE_TYPES.indexOf(cfg.diceMax);
+            if (idx === -1) idx = 5; // default to d20
+            idx += delta;
+            if (idx < 0) idx = DICE_TYPES.length - 1;
+            if (idx >= DICE_TYPES.length) idx = 0;
+            cfg.diceMax = DICE_TYPES[idx];
+            elTypeValue.textContent = 'd' + cfg.diceMax;
+            updateDiceShape();
+            if (!hasRolled) elResult.textContent = '--';
+        }
+
+        function changeDiceCount(delta) {
+            cfg.diceCount = Math.max(1, Math.min(10, cfg.diceCount + delta));
+            elCountValue.textContent = cfg.diceCount;
+            updateDiceShape();
+            if (!hasRolled) elResult.textContent = '--';
+        }
+
+        document.getElementById('type-minus').addEventListener('click', function(e) {
+            e.stopPropagation();
+            changeDiceType(-1);
+        });
+        document.getElementById('type-plus').addEventListener('click', function(e) {
+            e.stopPropagation();
+            changeDiceType(1);
+        });
+        document.getElementById('count-minus').addEventListener('click', function(e) {
+            e.stopPropagation();
+            changeDiceCount(-1);
+        });
+        document.getElementById('count-plus').addEventListener('click', function(e) {
+            e.stopPropagation();
+            changeDiceCount(1);
+        });
+
+        // ══════════════════════════════════════════════════════════════
+        // Roll on tap (anywhere except controls)
+        // ══════════════════════════════════════════════════════════════
+        document.getElementById('dice-area').addEventListener('click', function(e) {
+            // Don't roll if a control button was tapped
+            if (e.target.closest('.control-group')) return;
+            rollDice();
+        });
+
+        // ══════════════════════════════════════════════════════════════
+        // iCUE lifecycle
+        // ══════════════════════════════════════════════════════════════
+        function onInit() {
+            // Load translated strings
+            if (typeof tr === 'function') {
+                tr('Tap to Roll').then(function(s) { str.tapToRoll = s; elHint.textContent = s; });
+                tr('History').then(function(s) { str.history = s; elHistoryTitle.textContent = s; });
+                tr('No rolls yet').then(function(s) {
+                    str.noRolls = s;
+                    if (rollHistory.length === 0) renderHistory();
+                });
+            } else {
+                elHint.textContent = str.tapToRoll;
+                elHistoryTitle.textContent = str.history;
+            }
+
+            readSettings();
+            applySettings();
+            renderHistory();
+        }
+
+        function onDataUpdated() {
+            readSettings();
+            applySettings();
+        }
+
+        icueEvents = {
+            "onICUEInitialized": onInit,
+            "onDataUpdated": onDataUpdated
+        };
+
+        if (typeof iCUE_initialized !== 'undefined' && iCUE_initialized) {
+            onInit();
+        }
+
+        // Fallback for standalone testing (outside iCUE)
+        if (typeof iCUE_initialized === 'undefined') {
+            onInit();
+        }
+    </script>
+</body>
+</html>
