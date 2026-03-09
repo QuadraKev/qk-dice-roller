@@ -333,8 +333,8 @@
             :root { --die-base: 85vh; }
         }
 
-        /* ---- Responsive: Square-ish (M horizontal, S vertical) ---- */
-        @media (max-aspect-ratio: 180/100) and (min-aspect-ratio: 90/100) {
+        /* ---- Responsive: Square-ish (M horizontal) ---- */
+        @media (max-aspect-ratio: 180/100) and (min-aspect-ratio: 90/100) and (min-height: 500px) {
             :root { --die-base: 58vh; }
             .container {
                 flex-direction: column;
@@ -362,15 +362,104 @@
             }
         }
 
+        /* ---- Responsive: S vertical (696x416, short square-ish) ---- */
+        /* Hide history like S horizontal; use vw sizing since 696px is narrower than 840px */
+        @media (max-aspect-ratio: 180/100) and (min-aspect-ratio: 90/100) and (max-height: 500px) {
+            .history-area {
+                display: none;
+            }
+            .ctrl-btn {
+                width: 9vw;
+                height: 9vw;
+                font-size: 5vw;
+                border-radius: 1.3vw;
+            }
+            .ctrl-value {
+                font-size: 6vw;
+                min-width: 4vw;
+            }
+            .control-group {
+                gap: 0.6vw;
+            }
+            .dice-main-row {
+                gap: 1.5vw;
+            }
+            .dice-result {
+                font-size: 22vw;
+            }
+            .dice-result.digits-3 { font-size: 16vw; }
+            .dice-result.digits-4 { font-size: 12vw; }
+            .dice-hint {
+                font-size: 3.5vw;
+            }
+            .dice-individual {
+                font-size: 4vw;
+            }
+            :root { --die-base: 42vw; }
+        }
+
         /* ---- Responsive: Portrait (M/L/XL vertical) ---- */
+        /* Vertical width is always 696px; use vw to match M horizontal's vh-based physical sizes */
+        /* Flatten nested structure with display:contents, then reorder vertically */
         @media (max-aspect-ratio: 90/100) {
             .container {
                 flex-direction: column;
             }
             .dice-area {
-                flex: 0 0 45%;
+                flex: 0 0 auto;
+                justify-content: center;
+                gap: 1.5vw;
+                overflow: hidden;
+                padding: 3vw 2vw;
             }
-            :root { --die-base: 80vw; }
+            :root { --die-base: 60vw; }
+            /* Flatten nesting so all elements participate in dice-area's flex column */
+            .dice-main-row {
+                display: contents;
+            }
+            .dice-center {
+                display: contents;
+            }
+            .dice-result-wrap {
+                display: contents;
+            }
+            /* Order: result, individual results, hint, count controls, type controls */
+            .dice-result { order: 1; font-size: 22vw; }
+            .dice-result.digits-3 { font-size: 16vw; }
+            .dice-result.digits-4 { font-size: 12vw; }
+            .dice-individual {
+                order: 2;
+                font-size: 4vw;
+                position: static;
+            }
+            .dice-hint {
+                order: 3;
+                font-size: 3.5vw;
+                margin-top: 0;
+            }
+            #count-controls {
+                order: 4;
+                justify-content: center;
+                flex: 0;
+            }
+            #type-controls {
+                order: 5;
+                justify-content: center;
+                flex: 0;
+            }
+            .ctrl-btn {
+                width: 10.4vw;
+                height: 10.4vw;
+                font-size: 6vw;
+                border-radius: 1.5vw;
+            }
+            .ctrl-value {
+                font-size: 7vw;
+                min-width: 5vw;
+            }
+            .control-group {
+                gap: 0.8vw;
+            }
             .history-area {
                 flex: 1;
                 border-left: none;
