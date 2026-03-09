@@ -62,11 +62,19 @@ A spinning wireframe of the selected die rotates behind the result. Each die typ
 
 The widget adapts to all Xeneon Edge slot sizes:
 
+### Horizontal
+
 - **S** (840x344): history hidden; controls and result scaled up to match the physical size of other slots
 - **M** (840x696): dice area on top, history scrolls horizontally below
 - **L** (1688x696): dice area on the left, history panel on the right
 - **XL** (2536x696): same as L with more horizontal space
-- **Portrait** (vertical orientation): dice area on top, history list below
+
+### Vertical (Portrait)
+
+- **S** (696x416): history hidden; controls flanking dice, vw-based sizing to fit narrower width
+- **M** (696x840): vertically stacked layout (result, controls, history below)
+- **L** (696x1688): same stacking with more history space
+- **XL** (696x2536): same as L with extended history area
 
 When rolling multiple dice, individual results appear below the total (e.g., [4, 8, 5]).
 
